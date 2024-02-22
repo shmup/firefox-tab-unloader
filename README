@@ -5,6 +5,8 @@ Yet another method is going to about:unloads and clicking "Unloads" over and
 over. That's all this extension does, really. Get all the tabs and unload them.
 
 browser.browserAction.onClicked.addListener(async () => {
-  const tabs = await browser.tabs.query({ active: false, currentWindow: true });
-  tabs.forEach((tab) => browser.tabs.discard(tab.id));
+  const tabs = await browser.tabs.query({ active: false });
+  for (const tab of tabs) {
+    await browser.tabs.discard(tab.id);
+  }
 });
