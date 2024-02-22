@@ -1,4 +1,9 @@
 browser.browserAction.onClicked.addListener(async () => {
   const tabs = await browser.tabs.query({ active: false, currentWindow: true });
-  tabs.forEach((tab) => browser.tabs.discard(tab.id));
+  if (tabs.length > 0) {
+    for (const tab of tabs) {
+      await browser.tabs.discard(tab.id);
+    }
+    browser.browserAction.setIcon({ path: "icons/nosmurf.png" });
+  }
 });
