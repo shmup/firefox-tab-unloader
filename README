@@ -1,0 +1,10 @@
+This extension unloads all of your tabs excluding the active one. Similar to
+closing and re-opening Firefox with tab restoration.
+
+Yet another method is going to about:unloads and clicking "Unloads" over and
+over. That's all this extension does, really. Get all the tabs and unload them.
+
+browser.browserAction.onClicked.addListener(async () => {
+  const tabs = await browser.tabs.query({ active: false, currentWindow: true });
+  tabs.forEach((tab) => browser.tabs.discard(tab.id));
+});

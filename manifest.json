@@ -1,0 +1,25 @@
+{
+  "manifest_version": 2,
+  "name": "tubloader",
+  "version": "1.0",
+  "description": "Unload all but the active tab",
+  "author": "Jared Miller <shmup>",
+  "browser_action": {
+    "default_icon": {
+      "48": "icons/smurf.png"
+    }
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "ff-tabunloader@smell.flowers"
+    }
+  },
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "permissions": [
+    "tabs"
+  ]
+}
