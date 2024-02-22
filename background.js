@@ -10,12 +10,10 @@ function resetIconOnTabLoad(_tabId, changeInfo, _tab) {
 
 browser.browserAction.onClicked.addListener(async () => {
   const tabs = await browser.tabs.query({ active: false });
-  if (tabs.length > 0) {
-    browser.browserAction.setIcon({ path: "icons/nosmurf.png" });
-    iconChanged = true;
-    for (const tab of tabs) {
-      await browser.tabs.discard(tab.id);
-    }
-    browser.tabs.onUpdated.addListener(resetIconOnTabLoad);
+  browser.browserAction.setIcon({ path: "icons/nosmurf.png" });
+  iconChanged = true;
+  for (const tab of tabs) {
+    await browser.tabs.discard(tab.id);
   }
+  browser.tabs.onUpdated.addListener(resetIconOnTabLoad);
 });

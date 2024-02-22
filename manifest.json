@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "tubloader",
-  "version": "1.0",
+  "version": "1.1",
   "description": "Unload all but the active tab",
   "author": "Jared Miller <shmup>",
   "browser_action": {
