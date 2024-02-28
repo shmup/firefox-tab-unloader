@@ -4,7 +4,7 @@ function resetIconOnTabLoad(_tabId, changeInfo, _tab) {
   if (changeInfo.status === "complete" && iconChanged) {
     browser.browserAction.setIcon({ path: "icons/zoidberg.png" });
     iconChanged = false;
-    browser.tabs.onUpdated.removeListener(resetIconOnTabLoad);
+    browser.tabs.onUpdated.removeListener(resetIconOnTabLoad); // remove listener
   }
 }
 
@@ -15,5 +15,5 @@ browser.browserAction.onClicked.addListener(async () => {
   for (const tab of tabs) {
     await browser.tabs.discard(tab.id);
   }
-  browser.tabs.onUpdated.addListener(resetIconOnTabLoad);
+  browser.tabs.onUpdated.addListener(resetIconOnTabLoad); // add listener
 });
