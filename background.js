@@ -1,5 +1,6 @@
 let iconChanged = false;
 let autoUnloadPatterns = new Set();
+let cachedStats = null;
 
 function resetIconOnTabLoad(_tabId, changeInfo, tab) {
   if (changeInfo.status === "loading" && !tab.discarded && iconChanged) {
@@ -10,9 +11,12 @@ function resetIconOnTabLoad(_tabId, changeInfo, tab) {
 }
 
 async function getTabStats() {
-  const tabs = await browser.tabs.query({});
-  const loadedTabs = tabs.filter(tab => !tab.discarded);
-  return { total: tabs.length, loaded: loadedTabs.length };
+  if (!cachedStats) {
+    const tabs = await browser.tabs.query({});
+    const loadedTabs = tabs.filter(tab => !tab.discarded);
+    cachedStats = { total: tabs.length, loaded: loadedTabs.length };
+  }
+  return cachedStats;
 }
 
 function getHostname(url) {
@@ -24,6 +28,14 @@ function getHostname(url) {
 }
 
 async function updateContextMenu(info, tab) {
+  // show updating status if cache is stale
+  if (!cachedStats) {
+    await browser.menus.update("tab-stats", {
+      title: `tabs loaded (updating)`
+    });
+    await browser.menus.refresh();
+  }
+
   const stats = await getTabStats();
   await browser.menus.update("tab-stats", {
     title: `${stats.loaded}/${stats.total} tabs loaded`
@@ -97,10 +109,10 @@ browser.menus.onShown.addListener(async (info, tab) => {
   await updateContextMenu(info, tab);
 });
 
-// update stats when tabs are discarded or restored
-browser.tabs.onUpdated.addListener(async (_tabId, changeInfo) => {
+// invalidate cache when tabs are discarded or restored
+browser.tabs.onUpdated.addListener((_tabId, changeInfo) => {
   if (changeInfo.discarded !== undefined) {
-    await updateContextMenu();
+    cachedStats = null;
   }
 });
 
