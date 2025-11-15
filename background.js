@@ -70,7 +70,11 @@ browser.menus.onClicked.addListener(async (info) => {
 
     for (const tab of tabsToUnload) {
       if (!tab.active && !tab.discarded) {
-        await browser.tabs.discard(tab.id);
+        try {
+          await browser.tabs.discard(tab.id);
+        } catch (e) {
+          // discard fails silently on loading tabs, skip them
+        }
       }
     }
 
@@ -83,7 +87,11 @@ browser.action.onClicked.addListener(async () => {
   browser.action.setIcon({ path: "icons/voidberg.png" });
   iconChanged = true;
   for (const tab of tabs) {
-    await browser.tabs.discard(tab.id);
+    try {
+      await browser.tabs.discard(tab.id);
+    } catch (e) {
+      // discard fails silently on loading tabs, skip them
+    }
   }
   browser.tabs.onUpdated.addListener(resetIconOnTabLoad);
 });
