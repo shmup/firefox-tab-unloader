@@ -124,32 +124,37 @@ browser.tabs.onUpdated.addListener((_tabId, changeInfo) => {
 
 async function unloadInactiveTabs() {
   const tabs = await browser.tabs.query({ active: false });
-  browser.action.setIcon({ path: "icons/voidberg.png" });
-  iconChanged = true;
-  for (const tab of tabs) {
+  const tabIds = tabs.filter(tab => !tab.discarded).map(tab => tab.id);
+
+  if (tabIds.length > 0) {
+    browser.action.setIcon({ path: "icons/voidberg.png" });
+    iconChanged = true;
     try {
-      await browser.tabs.discard(tab.id);
+      await browser.tabs.discard(tabIds);
     } catch (e) {
-      // discard fails silently on loading tabs, skip them
+      // discard fails on loading tabs
     }
+    browser.tabs.onUpdated.addListener(resetIconOnTabLoad);
   }
-  browser.tabs.onUpdated.addListener(resetIconOnTabLoad);
 }
 
 // when switching tabs, unload the previous tab if its hostname matches patterns
 browser.tabs.onActivated.addListener(async (activeInfo) => {
   const allTabs = await browser.tabs.query({ windowId: activeInfo.windowId });
+  const tabIds = allTabs
+    .filter(tab =>
+      tab.id !== activeInfo.tabId &&
+      !tab.discarded &&
+      tab.url &&
+      autoUnloadPatterns.has(getHostname(tab.url))
+    )
+    .map(tab => tab.id);
 
-  for (const tab of allTabs) {
-    if (tab.id !== activeInfo.tabId && !tab.discarded && tab.url) {
-      const hostname = getHostname(tab.url);
-      if (hostname && autoUnloadPatterns.has(hostname)) {
-        try {
-          await browser.tabs.discard(tab.id);
-        } catch (e) {
-          // discard fails silently on loading tabs, skip them
-        }
-      }
+  if (tabIds.length > 0) {
+    try {
+      await browser.tabs.discard(tabIds);
+    } catch (e) {
+      // discard fails on loading tabs
     }
   }
 });
@@ -159,21 +164,20 @@ browser.menus.onClicked.addListener(async (info, tab) => {
     const tabs = await browser.tabs.query({});
     tabs.sort((a, b) => b.lastAccessed - a.lastAccessed);
     const tabsToUnload = tabs.slice(10);
+    const tabIds = tabsToUnload
+      .filter(tab => !tab.active && !tab.discarded)
+      .map(tab => tab.id);
 
-    browser.action.setIcon({ path: "icons/voidberg.png" });
-    iconChanged = true;
-
-    for (const tab of tabsToUnload) {
-      if (!tab.active && !tab.discarded) {
-        try {
-          await browser.tabs.discard(tab.id);
-        } catch (e) {
-          // discard fails silently on loading tabs, skip them
-        }
+    if (tabIds.length > 0) {
+      browser.action.setIcon({ path: "icons/voidberg.png" });
+      iconChanged = true;
+      try {
+        await browser.tabs.discard(tabIds);
+      } catch (e) {
+        // discard fails on loading tabs
       }
+      browser.tabs.onUpdated.addListener(resetIconOnTabLoad);
     }
-
-    browser.tabs.onUpdated.addListener(resetIconOnTabLoad);
   } else if (info.menuItemId === "auto-unload-toggle") {
     if (tab && tab.url) {
       const hostname = getHostname(tab.url);
