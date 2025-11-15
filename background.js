@@ -24,12 +24,18 @@ async function discardTabs(tabIds) {
   }
 }
 
+function isDiscardable(tab) {
+  // filter out about:, moz-extension:, and other internal firefox pages
+  return tab.url && !tab.url.startsWith("about:") && !tab.url.startsWith("moz-extension:");
+}
+
 async function getTabStats() {
   const tabs = await browser.tabs.query({});
-  const loadedTabs = tabs.filter(tab => !tab.discarded && tab.status === "complete");
-  const loadingTabs = tabs.filter(tab => !tab.discarded && tab.status === "loading");
+  const discardableTabs = tabs.filter(isDiscardable);
+  const loadedTabs = discardableTabs.filter(tab => !tab.discarded && tab.status === "complete");
+  const loadingTabs = discardableTabs.filter(tab => !tab.discarded && tab.status === "loading");
   return {
-    total: tabs.length,
+    total: discardableTabs.length,
     loaded: loadedTabs.length,
     loading: loadingTabs.length
   };
@@ -132,7 +138,7 @@ browser.menus.onShown.addListener(async (info, tab) => {
 
 async function unloadInactiveTabs() {
   const tabs = await browser.tabs.query({ active: false });
-  const tabIds = tabs.filter(tab => !tab.discarded).map(tab => tab.id);
+  const tabIds = tabs.filter(tab => !tab.discarded && isDiscardable(tab)).map(tab => tab.id);
   await discardTabs(tabIds);
 }
 
@@ -156,8 +162,9 @@ browser.tabs.onActivated.addListener(async (activeInfo) => {
 browser.menus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "unload-all-but-recent") {
     const tabs = await browser.tabs.query({});
-    tabs.sort((a, b) => b.lastAccessed - a.lastAccessed);
-    const tabsToUnload = tabs.slice(10);
+    const discardableTabs = tabs.filter(isDiscardable);
+    discardableTabs.sort((a, b) => b.lastAccessed - a.lastAccessed);
+    const tabsToUnload = discardableTabs.slice(10);
     const tabIds = tabsToUnload
       .filter(tab => !tab.active && !tab.discarded)
       .map(tab => tab.id);
