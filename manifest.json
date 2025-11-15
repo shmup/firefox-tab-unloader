@@ -1,10 +1,10 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "tubloader",
   "version": "1.11",
   "description": "Unload all but the active tab",
   "author": "Jared Miller <shmup>",
-  "browser_action": {
+  "action": {
     "default_icon": {
       "88": "icons/zoidberg.png"
     }
@@ -21,6 +21,7 @@
   },
   "homepage_url": "https://github.com/shmup/firefox-tab-unloader",
   "permissions": [
-    "tabs"
+    "tabs",
+    "menus"
   ]
 }
