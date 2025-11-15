@@ -13,8 +13,13 @@ function resetIconOnTabLoad(_tabId, changeInfo, tab) {
 async function getTabStats() {
   if (!cachedStats) {
     const tabs = await browser.tabs.query({});
-    const loadedTabs = tabs.filter(tab => !tab.discarded);
-    cachedStats = { total: tabs.length, loaded: loadedTabs.length };
+    const loadedTabs = tabs.filter(tab => !tab.discarded && tab.status === "complete");
+    const loadingTabs = tabs.filter(tab => !tab.discarded && tab.status === "loading");
+    cachedStats = {
+      total: tabs.length,
+      loaded: loadedTabs.length,
+      loading: loadingTabs.length
+    };
   }
   return cachedStats;
 }
@@ -37,8 +42,9 @@ async function updateContextMenu(info, tab) {
   }
 
   const stats = await getTabStats();
+  const loadingText = stats.loading > 0 ? ` (${stats.loading} loading)` : "";
   await browser.menus.update("tab-stats", {
-    title: `${stats.loaded}/${stats.total} tabs loaded`
+    title: `${stats.loaded}/${stats.total} tabs loaded${loadingText}`
   });
 
   // if no tab provided (e.g., right-click on toolbar button), get active tab
@@ -109,9 +115,9 @@ browser.menus.onShown.addListener(async (info, tab) => {
   await updateContextMenu(info, tab);
 });
 
-// invalidate cache when tabs are discarded or restored
+// invalidate cache when tabs are discarded/restored or status changes
 browser.tabs.onUpdated.addListener((_tabId, changeInfo) => {
-  if (changeInfo.discarded !== undefined) {
+  if (changeInfo.discarded !== undefined || changeInfo.status !== undefined) {
     cachedStats = null;
   }
 });
