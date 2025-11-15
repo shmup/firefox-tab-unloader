@@ -11,7 +11,7 @@ function resetIconOnTabLoad(_tabId, changeInfo, tab) {
   }
 }
 
-function changeIconTemporarily() {
+function changeIconToUnloadedState() {
   browser.action.setIcon({ path: "icons/voidberg.png" });
   iconChanged = true;
   browser.tabs.onUpdated.addListener(resetIconOnTabLoad);
@@ -19,8 +19,9 @@ function changeIconTemporarily() {
 
 async function discardTabs(tabIds) {
   if (tabIds.length > 0) {
-    changeIconTemporarily();
+    browser.action.setIcon({ path: "icons/waitberg.png" });
     await browser.tabs.discard(tabIds).catch(() => {});
+    changeIconToUnloadedState();
   }
 }
 
