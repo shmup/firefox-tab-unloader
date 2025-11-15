@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 let iconChanged = false;
 let autoUnloadPatterns = new Set();
 let cachedStats = null;
