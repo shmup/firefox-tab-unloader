@@ -50,6 +50,12 @@ async function updateContextMenu(info, tab) {
     title: `${stats.loaded}/${stats.total} tabs loaded${loadingText}`
   });
 
+  // disable "unload all but recent" when voidberg is showing (nothing to unload)
+  const hasLoadedTabs = stats.loaded > 1;
+  await browser.menus.update("unload-all-but-recent", {
+    enabled: hasLoadedTabs
+  });
+
   // if no tab provided (e.g., right-click on toolbar button), get active tab
   if (!tab) {
     const activeTabs = await browser.tabs.query({ active: true, currentWindow: true });
