@@ -78,8 +78,14 @@ async function createContextMenus() {
     browser.menus.create({
       id: "tab-stats",
       title: "loading...",
-      contexts: ["action", "tab"],
+      contexts: ["action"],
       enabled: false
+    });
+
+    browser.menus.create({
+      id: "unload-current-tab",
+      title: "unload current tab",
+      contexts: ["action"]
     });
 
     browser.menus.create({
@@ -90,7 +96,7 @@ async function createContextMenus() {
 
     browser.menus.create({
       type: "separator",
-      contexts: ["action", "tab"]
+      contexts: ["action"]
     });
 
     // load stored patterns
@@ -101,7 +107,7 @@ async function createContextMenus() {
       id: "auto-unload-toggle",
       type: "checkbox",
       title: "always unload when unfocused",
-      contexts: ["action", "tab"],
+      contexts: ["action"],
       checked: false
     });
   } catch (e) {
@@ -190,6 +196,28 @@ browser.menus.onClicked.addListener(async (info, tab) => {
           autoUnloadPatterns.delete(hostname);
         }
         await browser.storage.local.set({ patterns: Array.from(autoUnloadPatterns) });
+      }
+    }
+  } else if (info.menuItemId === "unload-current-tab") {
+    // get current active tab
+    const [currentTab] = await browser.tabs.query({ active: true, currentWindow: true });
+    if (currentTab && !currentTab.discarded) {
+      // switch to next tab first
+      const tabs = await browser.tabs.query({ windowId: currentTab.windowId });
+      const currentIndex = tabs.findIndex(t => t.id === currentTab.id);
+      // find next non-discarded tab, wrapping around if needed
+      let nextIndex = (currentIndex + 1) % tabs.length;
+      while (tabs[nextIndex].discarded && nextIndex !== currentIndex) {
+        nextIndex = (nextIndex + 1) % tabs.length;
+      }
+      if (nextIndex !== currentIndex) {
+        await browser.tabs.update(tabs[nextIndex].id, { active: true });
+      }
+      // now unload the previous tab
+      try {
+        await browser.tabs.discard(currentTab.id);
+      } catch (e) {
+        // discard fails on loading tabs
       }
     }
   }
