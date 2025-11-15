@@ -22,6 +22,7 @@
   "homepage_url": "https://github.com/shmup/firefox-tab-unloader",
   "permissions": [
     "tabs",
-    "menus"
+    "menus",
+    "storage"
   ]
 }
