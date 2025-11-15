@@ -2,7 +2,6 @@
 
 let iconChanged = false;
 let autoUnloadPatterns = new Set();
-let cachedStats = null;
 
 function resetIconOnTabLoad(_tabId, changeInfo, tab) {
   if (changeInfo.status === "loading" && !tab.discarded && iconChanged) {
@@ -12,18 +11,28 @@ function resetIconOnTabLoad(_tabId, changeInfo, tab) {
   }
 }
 
-async function getTabStats() {
-  if (!cachedStats) {
-    const tabs = await browser.tabs.query({});
-    const loadedTabs = tabs.filter(tab => !tab.discarded && tab.status === "complete");
-    const loadingTabs = tabs.filter(tab => !tab.discarded && tab.status === "loading");
-    cachedStats = {
-      total: tabs.length,
-      loaded: loadedTabs.length,
-      loading: loadingTabs.length
-    };
+function changeIconTemporarily() {
+  browser.action.setIcon({ path: "icons/voidberg.png" });
+  iconChanged = true;
+  browser.tabs.onUpdated.addListener(resetIconOnTabLoad);
+}
+
+async function discardTabs(tabIds) {
+  if (tabIds.length > 0) {
+    changeIconTemporarily();
+    await browser.tabs.discard(tabIds).catch(() => {});
   }
-  return cachedStats;
+}
+
+async function getTabStats() {
+  const tabs = await browser.tabs.query({});
+  const loadedTabs = tabs.filter(tab => !tab.discarded && tab.status === "complete");
+  const loadingTabs = tabs.filter(tab => !tab.discarded && tab.status === "loading");
+  return {
+    total: tabs.length,
+    loaded: loadedTabs.length,
+    loading: loadingTabs.length
+  };
 }
 
 function getHostname(url) {
@@ -35,14 +44,6 @@ function getHostname(url) {
 }
 
 async function updateContextMenu(info, tab) {
-  // show updating status if cache is stale
-  if (!cachedStats) {
-    await browser.menus.update("tab-stats", {
-      title: `tabs loaded (updating)`
-    });
-    await browser.menus.refresh();
-  }
-
   const stats = await getTabStats();
   const loadingText = stats.loading > 0 ? ` (${stats.loading} loading)` : "";
   await browser.menus.update("tab-stats", {
@@ -123,27 +124,10 @@ browser.menus.onShown.addListener(async (info, tab) => {
   await updateContextMenu(info, tab);
 });
 
-// invalidate cache when tabs are discarded/restored or status changes
-browser.tabs.onUpdated.addListener((_tabId, changeInfo) => {
-  if (changeInfo.discarded !== undefined || changeInfo.status !== undefined) {
-    cachedStats = null;
-  }
-});
-
 async function unloadInactiveTabs() {
   const tabs = await browser.tabs.query({ active: false });
   const tabIds = tabs.filter(tab => !tab.discarded).map(tab => tab.id);
-
-  if (tabIds.length > 0) {
-    browser.action.setIcon({ path: "icons/voidberg.png" });
-    iconChanged = true;
-    try {
-      await browser.tabs.discard(tabIds);
-    } catch (e) {
-      // discard fails on loading tabs
-    }
-    browser.tabs.onUpdated.addListener(resetIconOnTabLoad);
-  }
+  await discardTabs(tabIds);
 }
 
 // when switching tabs, unload the previous tab if its hostname matches patterns
@@ -159,11 +143,7 @@ browser.tabs.onActivated.addListener(async (activeInfo) => {
     .map(tab => tab.id);
 
   if (tabIds.length > 0) {
-    try {
-      await browser.tabs.discard(tabIds);
-    } catch (e) {
-      // discard fails on loading tabs
-    }
+    await browser.tabs.discard(tabIds).catch(() => {});
   }
 });
 
@@ -176,16 +156,7 @@ browser.menus.onClicked.addListener(async (info, tab) => {
       .filter(tab => !tab.active && !tab.discarded)
       .map(tab => tab.id);
 
-    if (tabIds.length > 0) {
-      browser.action.setIcon({ path: "icons/voidberg.png" });
-      iconChanged = true;
-      try {
-        await browser.tabs.discard(tabIds);
-      } catch (e) {
-        // discard fails on loading tabs
-      }
-      browser.tabs.onUpdated.addListener(resetIconOnTabLoad);
-    }
+    await discardTabs(tabIds);
   } else if (info.menuItemId === "auto-unload-toggle") {
     if (tab && tab.url) {
       const hostname = getHostname(tab.url);
@@ -199,13 +170,10 @@ browser.menus.onClicked.addListener(async (info, tab) => {
       }
     }
   } else if (info.menuItemId === "unload-current-tab") {
-    // get current active tab
     const [currentTab] = await browser.tabs.query({ active: true, currentWindow: true });
     if (currentTab && !currentTab.discarded) {
-      // switch to next tab first
       const tabs = await browser.tabs.query({ windowId: currentTab.windowId });
       const currentIndex = tabs.findIndex(t => t.id === currentTab.id);
-      // find next non-discarded tab, wrapping around if needed
       let nextIndex = (currentIndex + 1) % tabs.length;
       while (tabs[nextIndex].discarded && nextIndex !== currentIndex) {
         nextIndex = (nextIndex + 1) % tabs.length;
@@ -213,12 +181,7 @@ browser.menus.onClicked.addListener(async (info, tab) => {
       if (nextIndex !== currentIndex) {
         await browser.tabs.update(tabs[nextIndex].id, { active: true });
       }
-      // now unload the previous tab
-      try {
-        await browser.tabs.discard(currentTab.id);
-      } catch (e) {
-        // discard fails on loading tabs
-      }
+      await browser.tabs.discard(currentTab.id).catch(() => {});
     }
   }
 });
