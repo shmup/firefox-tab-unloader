@@ -163,10 +163,14 @@ async function createContextMenus() {
   }
 }
 
-// create menus on startup
+// create menus on startup and install/reload
 browser.runtime.onStartup.addListener(async () => {
   await createContextMenus();
   await browser.action.setTitle({ title: "Click to unload all other tabs" });
+});
+
+browser.runtime.onInstalled.addListener(async () => {
+  await createContextMenus();
 });
 
 browser.menus.onShown.addListener(async (info, tab) => {
