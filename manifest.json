@@ -7,7 +7,8 @@
   "action": {
     "default_icon": {
       "88": "icons/zoidberg.png"
-    }
+    },
+    "default_title": "Click to unload all other tabs"
   },
   "browser_specific_settings": {
     "gecko": {
