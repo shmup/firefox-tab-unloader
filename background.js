@@ -53,6 +53,8 @@ function getHostname(url) {
 async function updateContextMenu(info, tab) {
   const stats = await getTabStats();
   const loadingText = stats.loading > 0 ? ` (${stats.loading} loading)` : "";
+
+  // update toolbar button context menu items
   await browser.menus.update("tab-stats", {
     title: `${stats.loaded}/${stats.total} tabs loaded${loadingText}`
   });
@@ -74,7 +76,15 @@ async function updateContextMenu(info, tab) {
     const hostname = getHostname(tab.url);
     if (hostname) {
       const isEnabled = autoUnloadPatterns.has(hostname);
+
+      // update toolbar button menu
       await browser.menus.update("auto-unload-toggle", {
+        checked: isEnabled,
+        title: `always unload ${hostname} when unfocused`
+      });
+
+      // update tab context menu
+      await browser.menus.update("tab-auto-unload-toggle", {
         checked: isEnabled,
         title: `always unload ${hostname} when unfocused`
       });
@@ -89,6 +99,7 @@ async function createContextMenus() {
   try {
     await browser.menus.removeAll();
 
+    // toolbar button context menu
     browser.menus.create({
       id: "tab-stats",
       title: "loading...",
@@ -122,6 +133,29 @@ async function createContextMenus() {
       type: "checkbox",
       title: "always unload when unfocused",
       contexts: ["action"],
+      checked: false
+    });
+
+    // tab context menu (right-click on tab bar)
+    browser.menus.create({
+      id: "tab-unloader-parent",
+      title: "Tab Unloader",
+      contexts: ["tab"]
+    });
+
+    browser.menus.create({
+      id: "tab-unload-all-others",
+      title: "unload all other tabs",
+      contexts: ["tab"],
+      parentId: "tab-unloader-parent"
+    });
+
+    browser.menus.create({
+      id: "tab-auto-unload-toggle",
+      type: "checkbox",
+      title: "always unload when unfocused",
+      contexts: ["tab"],
+      parentId: "tab-unloader-parent",
       checked: false
     });
   } catch (e) {
@@ -173,7 +207,7 @@ browser.menus.onClicked.addListener(async (info, tab) => {
       .map(tab => tab.id);
 
     await discardTabs(tabIds);
-  } else if (info.menuItemId === "auto-unload-toggle") {
+  } else if (info.menuItemId === "auto-unload-toggle" || info.menuItemId === "tab-auto-unload-toggle") {
     if (tab && tab.url) {
       const hostname = getHostname(tab.url);
       if (hostname) {
@@ -198,6 +232,16 @@ browser.menus.onClicked.addListener(async (info, tab) => {
         await browser.tabs.update(tabs[nextIndex].id, { active: true });
       }
       await browser.tabs.discard(currentTab.id).catch(() => {});
+    }
+  } else if (info.menuItemId === "tab-unload-all-others") {
+    // unload all tabs except the clicked one
+    if (tab) {
+      const tabs = await browser.tabs.query({ windowId: tab.windowId });
+      const tabIds = tabs
+        .filter(t => t.id !== tab.id && !t.discarded && isDiscardable(t))
+        .map(t => t.id);
+
+      await discardTabs(tabIds);
     }
   }
 });
