@@ -3,24 +3,22 @@
 let iconChanged = false;
 let autoUnloadPatterns = new Set();
 
-function resetIconOnTabLoad(_tabId, changeInfo, tab) {
-  if (changeInfo.status === "loading" && !tab.discarded && iconChanged) {
+browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (iconChanged && changeInfo.status === "loading" && !tab.discarded) {
     browser.action.setIcon({ path: "icons/zoidberg.png" });
     iconChanged = false;
-    browser.tabs.onUpdated.removeListener(resetIconOnTabLoad);
   }
-}
+});
 
 function changeIconToUnloadedState() {
   browser.action.setIcon({ path: "icons/voidberg.png" });
   iconChanged = true;
-  browser.tabs.onUpdated.addListener(resetIconOnTabLoad);
 }
 
 async function discardTabs(tabIds) {
   if (tabIds.length > 0) {
     browser.action.setIcon({ path: "icons/waitberg.png" });
-    await browser.tabs.discard(tabIds).catch(() => {});
+    await browser.tabs.discard(tabIds).catch(e => console.error("Error discarding tabs:", e));
     changeIconToUnloadedState();
   }
 }
@@ -32,14 +30,14 @@ function isDiscardable(tab) {
 
 async function getTabStats() {
   const tabs = await browser.tabs.query({});
-  const discardableTabs = tabs.filter(isDiscardable);
-  const loadedTabs = discardableTabs.filter(tab => !tab.discarded && tab.status === "complete");
-  const loadingTabs = discardableTabs.filter(tab => !tab.discarded && tab.status === "loading");
-  return {
-    total: discardableTabs.length,
-    loaded: loadedTabs.length,
-    loading: loadingTabs.length
-  };
+  return tabs.filter(isDiscardable).reduce((stats, tab) => {
+    stats.total++;
+    if (!tab.discarded) {
+      if (tab.status === "complete") stats.loaded++;
+      if (tab.status === "loading") stats.loading++;
+    }
+    return stats;
+  }, { total: 0, loaded: 0, loading: 0 });
 }
 
 function getHostname(url) {
@@ -77,17 +75,14 @@ async function updateContextMenu(info, tab) {
     if (hostname) {
       const isEnabled = autoUnloadPatterns.has(hostname);
 
-      // update toolbar button menu
-      await browser.menus.update("auto-unload-toggle", {
-        checked: isEnabled,
-        title: `always unload ${hostname} when unfocused`
-      });
-
-      // update tab context menu
-      await browser.menus.update("tab-auto-unload-toggle", {
-        checked: isEnabled,
-        title: `always unload ${hostname} when unfocused`
-      });
+      // update both menus in parallel
+      const menuUpdates = ["auto-unload-toggle", "tab-auto-unload-toggle"].map(id =>
+        browser.menus.update(id, {
+          checked: isEnabled,
+          title: `always unload ${hostname} when unfocused`
+        })
+      );
+      await Promise.all(menuUpdates);
     }
   }
 
@@ -164,14 +159,13 @@ async function createContextMenus() {
 }
 
 // create menus on startup and install/reload
-browser.runtime.onStartup.addListener(async () => {
+async function initialize() {
   await createContextMenus();
   await browser.action.setTitle({ title: "Click to unload all other tabs" });
-});
+}
 
-browser.runtime.onInstalled.addListener(async () => {
-  await createContextMenus();
-});
+browser.runtime.onStartup.addListener(initialize);
+browser.runtime.onInstalled.addListener(initialize);
 
 browser.menus.onShown.addListener(async (info, tab) => {
   await updateContextMenu(info, tab);
@@ -196,7 +190,7 @@ browser.tabs.onActivated.addListener(async (activeInfo) => {
     .map(tab => tab.id);
 
   if (tabIds.length > 0) {
-    await browser.tabs.discard(tabIds).catch(() => {});
+    await browser.tabs.discard(tabIds).catch(e => console.error("Error auto-discarding tabs:", e));
   }
 });
 
@@ -235,7 +229,7 @@ browser.menus.onClicked.addListener(async (info, tab) => {
       if (nextIndex !== currentIndex) {
         await browser.tabs.update(tabs[nextIndex].id, { active: true });
       }
-      await browser.tabs.discard(currentTab.id).catch(() => {});
+      await browser.tabs.discard(currentTab.id).catch(e => console.error("Error discarding current tab:", e));
     }
   } else if (info.menuItemId === "tab-unload-all-others") {
     // unload all tabs except the clicked one
