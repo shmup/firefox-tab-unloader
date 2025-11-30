@@ -63,15 +63,17 @@ async function updateContextMenu(info, tab) {
     enabled: hasLoadedTabs
   });
 
-  // if no tab provided (e.g., right-click on toolbar button), get active tab
-  if (!tab) {
-    const activeTabs = await browser.tabs.query({ active: true, currentWindow: true });
-    tab = activeTabs[0];
-  }
+  // hide tab-specific menu items for non-discardable tabs (about:, moz-extension:, etc.)
+  const currentTab = tab || (await browser.tabs.query({ active: true, currentWindow: true }))[0];
+  const isCurrentTabDiscardable = currentTab && isDiscardable(currentTab);
+  const canUnloadCurrent = isCurrentTabDiscardable && !currentTab.discarded;
+
+  await browser.menus.update("unload-current-tab", { visible: canUnloadCurrent });
+  await browser.menus.update("auto-unload-toggle", { visible: isCurrentTabDiscardable });
 
   // update checkbox state based on current tab's hostname
-  if (tab && tab.url) {
-    const hostname = getHostname(tab.url);
+  if (isCurrentTabDiscardable) {
+    const hostname = getHostname(currentTab.url);
     if (hostname) {
       const isEnabled = autoUnloadPatterns.has(hostname);
 

@@ -1,13 +1,10 @@
 {
   "manifest_version": 3,
   "name": "tubloader",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Unload all but the active tab",
   "author": "Jared Miller <shmup>",
   "icons": {
-    "16": "icons/zoidberg.png",
-    "32": "icons/zoidberg.png",
-    "48": "icons/zoidberg.png",
     "88": "icons/zoidberg.png"
   },
   "action": {
