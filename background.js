@@ -163,6 +163,7 @@ async function createContextMenus() {
 // create menus on startup and install/reload
 async function initialize() {
   await createContextMenus();
+  await browser.action.setIcon({ path: "icons/zoidberg.png" });
   await browser.action.setTitle({ title: "Click to unload all other tabs" });
 }
 
