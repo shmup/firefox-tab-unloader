@@ -15,7 +15,8 @@
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "ff-tabunloader@smell.flowers"
+      "id": "ff-tabunloader@smell.flowers",
+      "data_collection_permissions": {}
     }
   },
   "background": {
