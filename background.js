@@ -1,18 +1,15 @@
 // @ts-nocheck
 
-let iconChanged = false;
 let autoUnloadPatterns = new Set();
 
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (iconChanged && changeInfo.status === "loading" && !tab.discarded) {
+  if (changeInfo.status === "loading" && !tab.discarded) {
     browser.action.setIcon({ path: "icons/zoidberg.png" });
-    iconChanged = false;
   }
 });
 
 function changeIconToUnloadedState() {
   browser.action.setIcon({ path: "icons/voidberg.png" });
-  iconChanged = true;
 }
 
 async function discardTabs(tabIds) {
